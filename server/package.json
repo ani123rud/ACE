@@ -1,0 +1,28 @@
+{
+  "name": "ai-voice-interview-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js",
+    "worker:rag": "node src/services/RAGQueueWorker.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.8",
+    "cheerio": "^1.0.0-rc.12",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "mongoose": "^8.4.1",
+    "morgan": "^1.10.0",
+    "puppeteer": "^22.10.0",
+    "llamaindex": "^0.3.15",
+    "multer": "^1.4.5-lts.1",
+    "pdfjs-dist": "^4.6.82",
+    "redis": "^4.7.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}

@@ -1,0 +1,31 @@
+:root { color-scheme: light dark; --bg:#0f172a; --panel:#111827; --muted:#94a3b8; --text:#e5e7eb; --accent:#22d3ee; }
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  background: linear-gradient(180deg, #0b1020, #0f172a);
+  color: var(--text);
+}
+.container { max-width: 1100px; margin: 0 auto; padding: 16px; }
+.topbar { display:flex; align-items:center; justify-content: space-between; gap: 12px; }
+.topbar h1 { margin: 0; font-size: 20px; }
+.session-controls { display:flex; gap:8px; }
+.session-controls input { padding:8px 10px; background:#0b1220; border:1px solid #1f2937; color:var(--text); border-radius:8px; }
+.session-controls button { padding:8px 12px; border:0; border-radius:8px; background:var(--accent); color:#002b2b; font-weight:700; cursor:pointer; }
+.warning { margin: 12px 0; color: #fca5a5; }
+.main { display:grid; grid-template-columns: 1fr 280px; gap: 16px; margin-top: 16px; }
+.chat-window { background: rgba(17,24,39,0.6); border:1px solid #1f2937; border-radius:12px; padding:12px; height: 60vh; overflow:auto; display:flex; flex-direction: column; gap: 10px; }
+.msg { display:flex; }
+.msg.candidate { justify-content: flex-end; }
+.bubble { max-width: 75%; padding:10px 12px; border-radius: 12px; background:#0b1220; border:1px solid #1f2937; }
+.msg.interviewer .bubble { background:#09101f; }
+.role { display:block; font-size:11px; color:var(--muted); margin-bottom:4px; }
+.text { white-space: pre-wrap; }
+.composer { margin-top:10px; display:flex; justify-content:flex-end; }
+.mic { padding:10px 16px; border-radius:9999px; background:#0b1220; color:var(--text); border:1px solid #1f2937; cursor:pointer; }
+.mic.rec { background:#ef4444; color:white; border-color:#ef4444; }
+.proctor-panel { background: rgba(17,24,39,0.6); border:1px solid #1f2937; border-radius:12px; padding:12px; }
+.integrity { margin-bottom:8px; }
+.alert-item { display:flex; gap:8px; font-size:12px; padding:6px 0; border-bottom:1px dashed #1f2937; }
+.alerts .muted { color: var(--muted); font-size: 12px; }
+.time { color: var(--muted); }
+.type { color: #93c5fd; }

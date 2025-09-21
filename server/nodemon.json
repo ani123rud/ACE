@@ -1,0 +1,12 @@
+{
+  "watch": ["src"],
+  "ignore": [
+    "node_modules",
+    "data",
+    "data/**/*",
+    "src/services/rag/**/index_store.json",
+    "src/services/rag/**/doc_store.json"
+  ],
+  "ext": "js,json",
+  "delay": "200ms"
+}

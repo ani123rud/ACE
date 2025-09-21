@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NOVUS 2025 – Redefining Tomorrow</title>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background: #0b0d10;
+      color: #e6e9ef;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+    }
+
+    /* Single section hosting both 3D (left) and About (right) */
+    section#scene {
+      display: flex;
+      flex-direction: row;
+      align-items: stretch;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      gap: 0;
+    }
+
+    .left-visual {
+      flex: 1.15 1 0;
+      position: relative;
+      min-width: 40%;
+      background: #0b0d10;
+    }
+
+    /* Spline iframe fills the left pane */
+    #spline-embed {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+    }
+
+    .right-about {
+      flex: 0.85 1 0;
+      min-width: 340px;
+      max-width: 720px;
+      padding: 32px 32px 32px 28px;
+      background: linear-gradient(180deg, rgba(18, 20, 23, 0.75), rgba(10, 12, 14, 0.75));
+      border-left: 1px solid rgba(255, 255, 255, 0.08);
+      overflow-y: auto;
+    }
+
+    .right-about h1 {
+      margin: 0 0 8px 0;
+      font-size: 1.75rem;
+      color: #ffffff;
+      letter-spacing: 0.2px;
+    }
+
+    .right-about h2 {
+      margin: 0 0 18px 0;
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: #9cc9ff;
+      opacity: 0.9;
+      letter-spacing: 0.35px;
+      text-transform: uppercase;
+    }
+
+    .right-about p {
+      margin: 0 0 14px 0;
+      font-size: 1rem;
+      line-height: 1.55rem;
+      color: #d7dee8;
+    }
+
+    @media (max-width: 860px) {
+      section#scene {
+        flex-direction: column;
+      }
+      .left-visual {
+        height: 48vh;
+        min-height: 320px;
+      }
+      .right-about {
+        height: 52vh;
+        min-width: 100%;
+        max-width: 100%;
+        padding: 20px 16px 24px 16px;
+      }
+      .right-about h1 { font-size: 1.35rem; }
+    }
+  </style>
+  <!-- Note: We will not attempt to hide or remove any watermarks. -->
+  <!-- Spline: https://my.spline.design/helloliquidtext-ia8wPYt8LzuPVDg1CF61XPe3-gX6/ -->
+  <!-- If Spline provides a script embed, iframe is still the most broadly compatible. -->
+</head>
+<body>
+  <section id="scene" aria-label="3D scene with NOVUS 2025 about">
+    <div class="left-visual" aria-hidden="false">
+      <iframe
+        id="spline-embed"
+        src="https://my.spline.design/helloliquidtext-ia8wPYt8LzuPVDg1CF61XPe3-gX6/"
+        allow="autoplay; fullscreen; vr"
+        allowfullscreen
+        loading="lazy"
+        title="Spline 3D Scene"
+      ></iframe>
+    </div>
+
+    <div class="right-about" role="region" aria-label="About NOVUS 2025">
+      <h2>Redefining Tomorrow</h2>
+      <h1>NOVUS 2025</h1>
+      <p>
+        NOVUS is the national innovation fest that celebrates creativity, technology, and visionary ideas shaping the future. Bringing together brilliant minds from across the country, NOVUS 2025 is a platform where students, researchers, startups, and industry leaders unite to share knowledge, showcase innovations, and inspire change.
+      </p>
+      <p>
+        This year’s theme, “Redefining Tomorrow”, highlights cutting-edge advancements across science, technology, and sustainability. From interactive exhibitions and hackathons to keynote talks and competitions, NOVUS 2025 is more than an event — it’s a movement that empowers young innovators to turn bold ideas into reality.
+      </p>
+      <p>
+        Join us as we ignite innovation, spark collaboration, and build the future — today. 🚀
+      </p>
+    </div>
+  </section>
+</body>
+</html>
