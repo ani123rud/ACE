@@ -11,6 +11,9 @@ import scoringRoutes from './routes/scoring.js';
 import ragRoutes from './routes/rag.js';
 import adminRoutes from './routes/admin.js';
 import { initRedis } from './config/redis.js';
+import alertsRoutes from './routes/alerts.js';
+import path from 'path';
+import { getLocalRoot } from './utils/storage.js';
 
 dotenv.config();
 
@@ -29,12 +32,20 @@ async function bootstrap() {
     res.json({ ok: true, ts: Date.now() });
   });
 
+  // Serve local storage files when using local backend
+  try {
+    const localRoot = await getLocalRoot();
+    app.use('/files', express.static(localRoot));
+    console.log('[server] static files served from', localRoot);
+  } catch {}
+
   app.use('/api', interviewRoutes);
   app.use('/api/proctor', proctorRoutes);
   app.use('/api/vision', visionRoutes);
   app.use('/api/scoring', scoringRoutes);
   app.use('/api/rag', ragRoutes);
   app.use('/api/admin', adminRoutes);
+  app.use('/api/alerts', alertsRoutes);
 
   const { PORT } = getEnv();
   app.listen(PORT, () => {

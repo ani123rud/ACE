@@ -1,8 +1,17 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
 export default function Nav() {
   const { pathname } = useLocation();
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  useEffect(() => {
+    const onFs = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener('fullscreenchange', onFs);
+    onFs();
+    return () => document.removeEventListener('fullscreenchange', onFs);
+  }, []);
+  // Hide nav when in fullscreen on interview page for immersive experience
+  if (isFullscreen && pathname === '/interview') return null;
   const linkStyle = (to: string) => ({
     padding: '8px 12px',
     borderRadius: 6,
