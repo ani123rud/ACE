@@ -14,6 +14,7 @@ import { initRedis } from './config/redis.js';
 import alertsRoutes from './routes/alerts.js';
 import path from 'path';
 import { getLocalRoot } from './utils/storage.js';
+import authRoutes from './routes/auth.js';
 
 dotenv.config();
 
@@ -46,6 +47,7 @@ async function bootstrap() {
   app.use('/api/rag', ragRoutes);
   app.use('/api/admin', adminRoutes);
   app.use('/api/alerts', alertsRoutes);
+  app.use('/api/auth', authRoutes);
 
   const { PORT } = getEnv();
   app.listen(PORT, () => {
