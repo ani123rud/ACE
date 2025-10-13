@@ -1,0 +1,108 @@
+services:
+  # ACE Server (Backend API)
+  ace-server:
+    build:
+      context: ./ACE/server
+      dockerfile: Dockerfile
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=development
+      - PORT=4000
+    volumes:
+      - ./ACE/server/src:/app/src
+    networks:
+      - app-network
+
+  # Frontend Development Server (Vite)
+  ace-frontend:
+    build:
+      context: ./ACE
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ./ACE/public:/app/public
+      - ./ACE/index.html:/app/index.html
+      - /app/node_modules
+    networks:
+      - app-network
+
+  # Main Server Service (Node.js/Express Backend)
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    ports:
+      - "4100:4100"
+    environment:
+      - NODE_ENV=development
+      - PORT=4100
+      - MONGODB_URI=mongodb://mongodb:27017/ai_interviewer
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - OLLAMA_EMBED_MODEL=nomic-embed-text
+      - SCRAPE_ALLOWLIST_DOMAINS=geeksforgeeks.org,interviewbit.com,developer.mozilla.org
+      - VISION_BASE_URL=http://vision-service:5001
+      - DEFER_EVAL=true
+      - OLLAMA_EVAL_LLM=llama3.2:1b
+      - ADMIN_TOKEN=455
+      - REDIS_URL=redis://redis:6379
+      - OLLAMA_SCORER_LLM=llama3.2:1b
+      - FAST_FLOW=true
+    volumes:
+      - ./server/src:/app/src
+    depends_on:
+      - mongodb
+      - redis
+      - vision-service
+    networks:
+      - app-network
+
+  # Vision Service (Python/FastAPI)
+  vision-service:
+    build:
+      context: ./vision-service
+      dockerfile: Dockerfile
+    ports:
+      - "5001:5001"
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./vision-service:/app
+      - /app/__pycache__
+      - /app/.venv
+    networks:
+      - app-network
+
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=ai_interviewer
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - app-network
+
+  # Redis Cache/Queue
+  redis:
+    image: redis:7.2-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - app-network
+
+volumes:
+  mongodb_data:
+  redis_data:
+
+networks:
+  app-network:
+    driver: bridge

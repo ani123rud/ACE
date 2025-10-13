@@ -64,7 +64,20 @@ async function computeFinalReport(sessionId, qa = [], proctor = {}) {
           } catch {}
           try {
             const ev = await evaluateAnswer({ question: q.question, candidateText: a.candidateText, context: ctx, history: session.history || [] });
-            await Answer.updateOne({ _id: a._id }, { $set: { eval: { score: ev.score, feedback: ev.feedback }, retrievedRefs: ctx } });
+            await Answer.updateOne(
+              { _id: a._id },
+              {
+                $set: {
+                  eval: { score: ev.score, feedback: ev.feedback },
+                  retrievedRefs: ctx,
+                  askedDifficulty: q?.difficulty || 'easy',
+                  nextSuggestion: {
+                    question: ev?.nextQuestion || null,
+                    difficulty: ev?.nextDifficulty || undefined,
+                  },
+                },
+              }
+            );
           } catch {}
         });
         for (let i = 0; i < tasks.length; i += CONCURRENCY) {

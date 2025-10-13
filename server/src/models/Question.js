@@ -8,6 +8,7 @@ const QuestionSchema = new mongoose.Schema({
   tags: [{ type: String }],
   embedding: [{ type: Number }],
   source: { type: String },
+  sourceRefs: [{ type: String }],
 }, { timestamps: true });
 
 export default mongoose.model('Question', QuestionSchema);

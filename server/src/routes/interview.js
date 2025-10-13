@@ -13,25 +13,27 @@ import mongoose from 'mongoose';
 const r = Router();
 
 r.post('/start', async (req, res) => {
-  const { candidateEmail, domain } = req.body || {};
+  // Accept either domain or domainId from client
+  const { candidateEmail, domain, domainId } = req.body || {};
+  const domainKey = domain || domainId; // unify naming
   // Ensure an intro question exists for a friendly start
   const introText = 'Please introduce yourself briefly.';
-  let intro = await Question.findOne({ domain, question: introText }).lean();
+  let intro = await Question.findOne({ domain: domainKey, question: introText }).lean();
   if (!intro) {
     try {
-      intro = await Question.create({ domain, question: introText, difficulty: 'easy' });
+      intro = await Question.create({ domain: domainKey, question: introText, difficulty: 'easy' });
       intro = intro.toObject();
     } catch {}
   }
-  let pool = await Question.find({ domain }).lean();
+  let pool = await Question.find({ domain: domainKey }).lean();
   if (!pool.length) {
     // Fallback: generate a set of questions from the domain's ingested PDFs via LlamaIndex
     try {
-      const generated = await generateQuestions(domain, 12);
+      const generated = await generateQuestions(domainKey, 12);
       if (Array.isArray(generated) && generated.length) {
-        const docs = generated.map(g => ({ domain, question: g.question, difficulty: g.difficulty || 'medium' }));
+        const docs = generated.map(g => ({ domain: domainKey, question: g.question, difficulty: g.difficulty || 'medium' }));
         await Question.insertMany(docs);
-        pool = await Question.find({ domain }).lean();
+        pool = await Question.find({ domain: domainKey }).lean();
       }
     } catch (e) {
       return res.status(400).json({ error: 'No questions available for domain and failed to auto-generate. Ensure PDFs are ingested.' });
@@ -40,7 +42,13 @@ r.post('/start', async (req, res) => {
   if (!pool.length) return res.status(400).json({ error: 'No questions available for domain' });
   // Prefer the intro question if available
   const first = intro || pool[Math.floor(Math.random() * pool.length)];
-  const session = await Session.create({ candidateEmail, domain, status: 'active', progress: { index: 0, total: 10 }, history: [] });
+  const session = await Session.create({
+    candidateEmail,
+    domain: domainKey,
+    status: 'active',
+    progress: { index: 0, total: 10 },
+    history: []
+  });
   return res.json({ sessionId: session._id, firstQ: { id: first._id, text: first.question } });
 });
 
@@ -175,8 +183,15 @@ r.post('/answer', async (req, res) => {
     nextQ = { id: pick._id, text: pick.question };
   }
 
-  // In FAST_FLOW, avoid per-answer feedback to keep UI snappy
-  res.json({ feedback: (DEFER || FAST_FLOW) ? null : evalRes.feedback, nextQuestion: nextQ, progress: session.progress });
+  // In FAST_FLOW, provide a lightweight heuristic feedback to keep UI snappy without heavy LLM
+  let quickFeedback = null;
+  if (FAST_FLOW) {
+    const a = String(candidateText || '').trim();
+    if (!a) quickFeedback = 'Try to say something, even briefly, touching key points and an example.';
+    else if (a.length < 60) quickFeedback = 'Be more specific: add 1-2 concrete details and a brief example.';
+    else quickFeedback = 'Good. Next time tighten structure: definition → key points → short example → trade-offs.';
+  }
+  res.json({ feedback: FAST_FLOW ? quickFeedback : (DEFER ? null : evalRes.feedback), nextQuestion: nextQ, progress: session.progress });
 });
 
 export default r;

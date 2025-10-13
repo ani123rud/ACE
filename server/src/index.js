@@ -40,7 +40,7 @@ async function bootstrap() {
     console.log('[server] static files served from', localRoot);
   } catch {}
 
-  app.use('/api', interviewRoutes);
+  app.use('/api/interview', interviewRoutes);
   app.use('/api/proctor', proctorRoutes);
   app.use('/api/vision', visionRoutes);
   app.use('/api/scoring', scoringRoutes);
