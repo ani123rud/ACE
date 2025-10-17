@@ -123,6 +123,7 @@ export function WebcamProctor({ sessionId, captureIntervalMs = 4000, onAlert, on
       const res = await verifyFrame(sessionId, b64);
       window.clearTimeout(timeout);
       onMetrics?.(res);
+      if (res.facesCount === 0) onAlert?.('No face detected', 'high');
       if (res.facesCount > 1 || res.multipleFaces) onAlert?.('Multiple faces detected', 'high');
       if (res.matchScore < 0.5) onAlert?.('Face mismatch risk', 'medium');
       if (res.lookingAway) onAlert?.('Looking away frequently', 'low');

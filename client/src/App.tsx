@@ -146,14 +146,15 @@ export default function App() {
     }
   };
 
-  // When STT produces resultText, auto-submit and reset
+  // When STT produces a final transcript, auto-submit
   useEffect(() => {
-    if (resultText && !isListening) {
+    if (resultText) {
       const answer = resultText;
       resetResult();
+      stopListening();
       submitAnswer(answer);
     }
-  }, [resultText, isListening]);
+  }, [resultText]);
 
   const canStart = useMemo(() => Boolean(email && domain && refCaptured), [email, domain, refCaptured]);
 
@@ -187,6 +188,7 @@ export default function App() {
         <div className="session-controls">
           <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" />
           <DomainSelector value={domain} onChange={setDomain} />
+          <a href="/admin" style={{ marginRight: '10px', padding: '8px 12px', backgroundColor: '#2c3e50', color: 'white', textDecoration: 'none', borderRadius: '4px' }}>Admin Panel</a>
           <button disabled={!canStart || !!sessionId} onClick={startSession}>Start Interview</button>
           {!isFullscreen && <button onClick={enterFullscreen}>Go Fullscreen</button>}
           {isFullscreen && <button onClick={exitFullscreen}>Exit Fullscreen</button>}

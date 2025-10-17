@@ -20,12 +20,36 @@ export async function evaluateAnswer({ question, candidateText, context, history
     });
     data = resp.data;
   } catch (e) {
-    // Fallback heuristic without breaking the flow
+    // Improved fallback heuristic without breaking the flow
     const len = (aText || '').trim().split(/\s+/).filter(Boolean).length;
-    const score = len < 3 ? 2 : len < 20 ? 5 : 7;
+    const hasKeywords = /\b(function|class|algorithm|method|variable|object|array|loop|condition|if|else|for|while|return|print|console|error|exception|try|catch|async|await|promise|callback|event|api|http|request|response|data|database|sql|mongodb|react|component|state|props|hook|effect|context|redux|store|action|reducer|middleware|router|route|controller|service|model|view|template|style|css|html|javascript|typescript|python|java|c\+\+|php|ruby|go|rust|swift|kotlin|scala|clojure|haskell|erlang|elixir)\b/i.test(aText);
+    const hasTechnicalTerms = /\b(api|endpoint|authentication|authorization|validation|serialization|parsing|encoding|decoding|encryption|hash|token|jwt|oauth|ssl|tls|cors|csrf|middleware|framework|library|package|dependency|version|build|compile|deploy|server|client|browser|mobile|desktop|web|app|application|software|program|code|script|function|method|class|object|variable|constant|parameter|argument|return|value|type|interface|abstract|inherit|polymorph|encapsulat|override|overload|constructor|destructor|garbage|collection|memory|leak|performance|optimization|scalability|security|vulnerability|attack|injection|breach|hack|exploit|patch|update|fix|bug|issue|error|exception|debug|log|trace|test|unit|integration|e2e|mock|stub|spy|fixture|assertion|expectation)\b/i.test(aText);
+
+    let score;
+    if (len < 3) {
+      score = 1; // Very short answer
+    } else if (len < 10) {
+      score = 3; // Too brief
+    } else if (len < 20) {
+      score = 4; // Brief but present
+    } else if (len < 50) {
+      score = hasKeywords ? 6 : 5; // Decent length, check for keywords
+    } else if (len < 100) {
+      score = hasKeywords && hasTechnicalTerms ? 8 : (hasKeywords ? 7 : 6);
+    } else {
+      score = hasKeywords && hasTechnicalTerms ? 9 : (hasKeywords ? 8 : 7);
+    }
+
     const feedback = len < 3
       ? 'Please provide a more complete answer with specific details.'
-      : 'Thanks for your answer. Consider adding concrete examples and clarifying key concepts.';
+      : len < 20
+      ? 'Your answer is quite brief. Consider elaborating with more detail and examples.'
+      : hasKeywords && hasTechnicalTerms
+      ? 'Good technical answer with relevant keywords. Consider adding concrete examples.'
+      : hasKeywords
+      ? 'Good use of technical terms. Try to be more specific with examples and implementation details.'
+      : 'Thanks for your answer. Consider using more technical terminology and providing concrete examples.';
+
     return { score, feedback, nextQuestion: null, nextDifficulty: 'medium' };
   }
 

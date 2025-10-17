@@ -108,7 +108,9 @@ def get_face_embedding(img_bytes: bytes) -> List[float]:
             if faces:
                 # Choose the face with largest area
                 faces.sort(key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]), reverse=True)
-                emb = getattr(faces[0], "normed_embedding", None) or getattr(faces[0], "embedding", None)
+                emb = getattr(faces[0], "normed_embedding", None)
+                if emb is None:
+                    emb = getattr(faces[0], "embedding", None)
                 if emb is not None:
                     return [float(x) for x in emb.tolist()]
         except Exception as e:
@@ -132,7 +134,9 @@ def get_face_embedding(img_bytes: bytes) -> List[float]:
                 crop = arr[max(bb.y1, 0):max(bb.y2, 0), max(bb.x1, 0):max(bb.x2, 0)]
                 faces = face_embedder.get(crop)
                 if faces:
-                    emb = getattr(faces[0], "normed_embedding", None) or getattr(faces[0], "embedding", None)
+                    emb = getattr(faces[0], "normed_embedding", None)
+                    if emb is None:
+                        emb = getattr(faces[0], "embedding", None)
                     if emb is not None:
                         return [float(x) for x in emb.tolist()]
         except Exception as e:
@@ -181,20 +185,40 @@ def yolo_face_metrics(img_bytes: bytes) -> Dict[str, Any]:
     }
 
 
-@app.post("/face/reference")
+@app.post("/api/vision/reference")
 async def create_reference(req: RefReq):
     img_bytes = decode_base64_image(req.image)
+    metrics = yolo_face_metrics(img_bytes)
     emb = get_face_embedding(img_bytes)
-    return {"embedding": emb, "meta": {"method": "arcface", "model": "r100"}}
+    # Determine hasFace primarily from embedding availability (InsightFace or YOLO-assisted)
+    all_zero = isinstance(emb, list) and len(emb) > 0 and all((float(x) == 0.0) for x in emb)
+    has_face = bool(isinstance(emb, list) and len(emb) > 0 and not all_zero)
+    # If YOLO metrics report 0 but we have a valid embedding, trust the embedder detection
+    faces_count = int(metrics.get("facesCount", 0))
+    if faces_count == 0 and has_face:
+        faces_count = 1
+        metrics["facesCount"] = 1
+        metrics["multipleFaces"] = False
+    # If no face, clear embedding to signal invalid reference to the Node layer
+    if not has_face:
+        emb = []
+    return {"ok": True, "embedding": emb, "meta": {"method": "arcface", "model": "r100"}, **metrics, "hasFace": has_face}
 
 
-@app.post("/face/verify")
+@app.post("/api/vision/verify")
 async def verify(req: VerifyReq):
     img_bytes = decode_base64_image(req.image)
     live_emb = get_face_embedding(img_bytes)
     score = compare_embeddings(live_emb, req.referenceEmbedding)
     metrics = yolo_face_metrics(img_bytes)
-    return {"matchScore": score, **metrics}
+    return {"ok": True, "matchScore": score, **metrics}
+
+
+@app.post("/api/vision/reference/save")
+async def save_reference(req: dict):
+    # This would save the reference embedding for a session
+    # For now, just return success
+    return {"ok": True, "refId": "temp-ref-id"}
 
 
 if __name__ == "__main__":

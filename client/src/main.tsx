@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import App from './App'
 import AdminIngest from './components/AdminIngest'
+import AdminPanel from './components/AdminPanel'
 import Nav from './components/Nav'
 import ReportPage from './components/ReportPage'
 import StartPage from './components/StartPage'
@@ -16,6 +17,7 @@ createRoot(root).render(
       <Nav />
       <Routes>
         <Route path="/admin/ingest" element={<AdminIngest />} />
+        <Route path="/admin" element={<AdminPanel />} />
         <Route path="/" element={<StartPage />} />
         <Route path="/capture" element={<CapturePage />} />
         <Route path="/interview" element={<App />} />

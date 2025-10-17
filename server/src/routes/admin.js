@@ -4,8 +4,10 @@ import path from 'path';
 import fsp from 'fs/promises';
 import { enqueue, STREAMS } from '../services/queue.js';
 import Question from '../models/Question.js';
+import { redis } from '../config/redis.js';
+import { ingestPdfs } from '../services/rag/llamaindex.js';
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } });
 const r = Router();
 
 function checkAdmin(req, res, next) {
@@ -29,6 +31,13 @@ r.post('/rag/ingest', checkAdmin, upload.array('files', 10), async (req, res) =>
     if (!domain) return res.status(400).json({ error: 'domain is required' });
     const files = (req.files || []).map(f => ({ buffer: f.buffer, originalname: f.originalname }));
     if (!files.length) return res.status(400).json({ error: 'no files uploaded' });
+    const asyncFlag = String(req.query?.async || '').toLowerCase();
+    const useAsync = (asyncFlag === '1' || asyncFlag === 'true') && !!redis?.isOpen;
+    if (!useAsync) {
+      const result = await ingestPdfs(domain, files);
+      return res.json({ queued: 0, direct: true, result });
+    }
+
     // Persist uploaded buffers to temp folder so worker can read later
     const uploadsDir = path.join(process.cwd(), 'server', 'tmp', 'uploads');
     await fsp.mkdir(uploadsDir, { recursive: true });
@@ -41,7 +50,7 @@ r.post('/rag/ingest', checkAdmin, upload.array('files', 10), async (req, res) =>
       jobIds.push(id);
     }
     // Return quickly; worker will process asynchronously
-    res.json({ queued: files.length, jobIds });
+    res.json({ queued: files.length, jobIds, direct: false });
   } catch (e) {
     console.error('[admin:RAG] enqueue error', e);
     res.status(500).json({ error: 'failed to enqueue PDFs for ingestion' });

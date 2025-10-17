@@ -9,7 +9,21 @@ r.post('/reference', async (req, res) => {
   const { sessionId, imageBase64 } = req.body || {};
   if (!imageBase64) return res.status(400).json({ error: 'imageBase64 required' });
   try {
-    const { embedding, meta } = await createVisionRef(imageBase64);
+    const resp = await createVisionRef(imageBase64);
+    const embedding = resp?.embedding || [];
+    const meta = resp?.meta || { method: 'arcface', model: 'r100' };
+    const facesCount = Number(resp?.facesCount || 0);
+    const hasFace = Boolean(resp?.hasFace || facesCount > 0);
+    const allZero = Array.isArray(embedding) && embedding.length > 0 && embedding.every((x) => Number(x) === 0);
+    if (!hasFace || !Array.isArray(embedding) || embedding.length === 0 || allZero) {
+      return res.status(422).json({
+        error: 'no_face_detected',
+        facesCount,
+        hasFace,
+        allZero,
+        embeddingLength: Array.isArray(embedding) ? embedding.length : 0,
+      });
+    }
     // If sessionId provided, persist immediately; else return embedding so client can save later.
     if (sessionId) {
       const existing = await FaceRef.findOneAndUpdate(
@@ -19,7 +33,7 @@ r.post('/reference', async (req, res) => {
       );
       return res.json({ ok: true, refId: existing._id, meta });
     }
-    return res.json({ ok: true, embedding, meta });
+    return res.json({ ok: true, embedding, meta, facesCount });
   } catch (e) {
     const code = e?.code || '';
     const timeout = code === 'ECONNABORTED' || code === 'ETIMEDOUT';

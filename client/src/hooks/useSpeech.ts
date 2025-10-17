@@ -17,20 +17,45 @@ export function useSpeech(): UseSpeech {
   const recRef = useRef<any | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [resultText, setResultText] = useState('');
+  const stopRequestedRef = useRef(false);
 
   useEffect(() => {
     if (!supported) return;
     const rec = new Recognition();
     rec.lang = 'en-US';
-    rec.interimResults = false;
+    rec.interimResults = true;
     rec.maxAlternatives = 1;
 
     rec.onresult = (e: any) => {
-      const t = e.results?.[0]?.[0]?.transcript || '';
-      setResultText(t);
+      let final = '';
+      const ri = e.resultIndex || 0;
+      for (let i = ri; i < e.results.length; i++) {
+        if (e.results[i].isFinal) {
+          final += e.results[i][0]?.transcript || '';
+        }
+      }
+      if (final) setResultText(final.trim());
     };
-    rec.onend = () => setIsListening(false);
-    rec.onerror = () => setIsListening(false);
+    rec.onend = () => {
+      if (stopRequestedRef.current) {
+        setIsListening(false);
+        return;
+      }
+      try {
+        rec.start();
+        setIsListening(true);
+      } catch {}
+    };
+    rec.onerror = () => {
+      if (stopRequestedRef.current) {
+        setIsListening(false);
+        return;
+      }
+      try {
+        rec.start();
+        setIsListening(true);
+      } catch {}
+    };
 
     recRef.current = rec;
     return () => {
@@ -43,6 +68,7 @@ export function useSpeech(): UseSpeech {
     if (!supported || !recRef.current) return;
     try {
       setResultText('');
+      stopRequestedRef.current = false;
       recRef.current.start();
       setIsListening(true);
     } catch {}
@@ -50,7 +76,7 @@ export function useSpeech(): UseSpeech {
 
   const stopListening = useCallback(() => {
     if (!supported || !recRef.current) return;
-    try { recRef.current.stop(); } catch {}
+    try { stopRequestedRef.current = true; recRef.current.stop(); } catch {}
     setIsListening(false);
   }, [supported]);
 

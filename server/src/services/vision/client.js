@@ -32,18 +32,18 @@ async function withRetry(fn, { retries = 1 } = {}) {
 export async function createReference(imageBase64) {
   const base = getVisionBase();
   return withRetry(async () => {
-    const res = await axios.post(`${base}/face/reference`, { image: imageBase64 }, { timeout: 15000 });
-    return res.data; // { embedding: number[], meta }
+    const res = await axios.post(`${base}/api/vision/reference`, { image: imageBase64 }, { timeout: 15000 });
+    return res.data; // { ok, embedding: number[], meta }
   }, { retries: 1 });
 }
 
 export async function verify(imageBase64, referenceEmbedding) {
   const base = getVisionBase();
   return withRetry(async () => {
-    const res = await axios.post(`${base}/face/verify`, {
+    const res = await axios.post(`${base}/api/vision/verify`, {
       image: imageBase64,
       referenceEmbedding,
     }, { timeout: 8000 });
-    return res.data; // { matchScore, multipleFaces, lookingAway, headPose, facesCount }
+    return res.data; // { ok, matchScore, multipleFaces, lookingAway, headPose, facesCount }
   }, { retries: 1 });
 }

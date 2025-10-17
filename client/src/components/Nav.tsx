@@ -23,6 +23,7 @@ export default function Nav() {
     <nav style={{ display: 'flex', gap: 10, alignItems: 'center', padding: 12, borderBottom: '1px solid #e5e7eb' }}>
       <div style={{ fontWeight: 700 }}>AI Interview</div>
       <div style={{ flex: 1 }} />
+      <Link to="/admin" style={linkStyle('/admin')}>Admin Panel</Link>
       <Link to="/ingest" style={linkStyle('/ingest')}>Upload PDFs</Link>
       <Link to="/interview" style={linkStyle('/interview')}>Start Interview</Link>
     </nav>

@@ -2,7 +2,10 @@
   "name": "ai-voice-interview",
   "private": true,
   "version": "0.1.0",
-  "workspaces": ["client", "server"],
+  "workspaces": [
+    "client",
+    "server"
+  ],
   "scripts": {
     "postinstall": "npm --prefix server install && npm --prefix client install",
     "dev": "concurrently \"npm:dev:server\" \"npm:dev:client\"",
@@ -11,5 +14,8 @@
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "llamaindex": "^0.12.0"
   }
 }

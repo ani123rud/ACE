@@ -38,16 +38,17 @@ async function parsePdfToText(fileBuffer) {
   const data = new Uint8Array(fileBuffer);
   // Provide standardFontDataUrl to avoid warnings/errors in Node
   const candidates = [
-    // when running from monorepo root (cwd=f:/ACE)
-    path.join(process.cwd(), 'server', 'node_modules', 'pdfjs-dist', 'standard_fonts') + path.sep,
     // when running with cwd=f:/ACE/server
     path.join(process.cwd(), 'node_modules', 'pdfjs-dist', 'standard_fonts') + path.sep,
+    // when running from monorepo root (cwd=f:/ACE)
+    path.join(process.cwd(), 'server', 'node_modules', 'pdfjs-dist', 'standard_fonts') + path.sep,
     // relative to this file's directory (../../.. => server/)
     path.join(__dirname, '..', '..', '..', 'node_modules', 'pdfjs-dist', 'standard_fonts') + path.sep,
   ];
-  const standardFontDataUrl = candidates.find(p => {
+  const existing = candidates.find(p => {
     try { return fs.existsSync(p); } catch { return false; }
-  }) || candidates[0];
+  });
+  const standardFontDataUrl = existing || undefined;
   const loadingTask = getDocument({ data, standardFontDataUrl });
   const pdf = await loadingTask.promise;
   let out = '';
@@ -69,13 +70,29 @@ export async function ingestPdfs(domain, files) {
   await ensureDir(dPath);
 
   const docs = [];
+  const CHUNK_SIZE = 1800; // characters per chunk to keep LLM context small
+  const CHUNK_OVERLAP = 200;
   for (const f of files) {
     const text = await parsePdfToText(f.buffer);
     if (!text?.trim()) continue;
-    docs.push(new Document({
-      text,
-      metadata: { domain, filename: f.originalname },
-    }));
+    const total = text.length;
+    let start = 0;
+    let idx = 0;
+    while (start < total) {
+      const end = Math.min(total, start + CHUNK_SIZE);
+      const slice = text.slice(start, end).trim();
+      if (slice) {
+        docs.push(new Document({
+          text: slice,
+          metadata: { domain, filename: f.originalname, chunk: idx },
+        }));
+        idx += 1;
+      }
+      if (end >= total) break;
+      start = end - CHUNK_OVERLAP;
+      if (start < 0) start = 0;
+      if (start >= end) start = end; // safety
+    }
   }
   if (!docs.length) return { added: 0 };
 
