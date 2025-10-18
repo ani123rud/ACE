@@ -23,13 +23,31 @@ Body: {
   }
 }
 */
-async function computeFinalReport(sessionId, qa = [], proctor = {}) {
+async function computeFinalReport(sessionId, qa = [], proctor = {}, opts = {}) {
   const DEFER = /^true$/i.test(process.env.DEFER_EVAL || 'false');
+  const forceRecompute = Boolean(opts?.forceRecompute);
   // If a report already exists, return it immediately
-  if (sessionId && mongoose.isValidObjectId(sessionId)) {
+  if (!forceRecompute && sessionId && mongoose.isValidObjectId(sessionId)) {
     const existing = await Session.findById(sessionId).lean();
     if (existing?.finalReport) return existing.finalReport;
   }
+  // If no QA provided, build it from stored Answers for this session (most recent 10)
+  try {
+    if ((!qa || !qa.length) && sessionId && mongoose.isValidObjectId(sessionId)) {
+      const answers = await Answer.find({ sessionId }).sort({ createdAt: 1 }).lean();
+      const last10 = answers.slice(-10);
+      const qIds = last10.map(a => a.questionId).filter(Boolean);
+      const qMap = new Map();
+      if (qIds.length) {
+        const qs = await Question.find({ _id: { $in: qIds } }).lean();
+        for (const q of qs) qMap.set(String(q._id), q);
+      }
+      qa = last10.map(a => ({
+        question: qMap.get(String(a.questionId))?.question || '',
+        answer: a.candidateText || '',
+      }));
+    }
+  } catch {}
   // If deferred mode, perform per-question evaluations now (once) using LlamaIndex context
   try {
     if (DEFER && sessionId) {
@@ -157,9 +175,9 @@ async function computeFinalReport(sessionId, qa = [], proctor = {}) {
 
 // Legacy synchronous endpoint (kept for compatibility)
 r.post('/final', async (req, res) => {
-  const { sessionId, qa = [], proctor = {} } = req.body || {};
+  const { sessionId, qa = [], proctor = {}, forceRecompute = false } = req.body || {};
   try {
-    const report = await computeFinalReport(sessionId, qa, proctor);
+    const report = await computeFinalReport(sessionId, qa, proctor, { forceRecompute });
     // persist in session
     if (sessionId && mongoose.isValidObjectId(sessionId)) {
       await Session.updateOne({ _id: sessionId }, { $set: { finalReport: report, status: 'ended', endedAt: new Date() } });
@@ -172,14 +190,14 @@ r.post('/final', async (req, res) => {
 
 // Async start endpoint: kicks off in background and returns immediately
 r.post('/final/start', async (req, res) => {
-  const { sessionId, qa = [], proctor = {} } = req.body || {};
+  const { sessionId, qa = [], proctor = {}, forceRecompute = false } = req.body || {};
   if (sessionId && mongoose.isValidObjectId(sessionId)) {
     // mark as finalizing to avoid duplicate heavy runs
     await Session.updateOne({ _id: sessionId }, { $set: { status: 'finalizing' } });
   }
   setImmediate(async () => {
     try {
-      const report = await computeFinalReport(sessionId, qa, proctor);
+      const report = await computeFinalReport(sessionId, qa, proctor, { forceRecompute });
       if (sessionId && mongoose.isValidObjectId(sessionId)) {
         await Session.updateOne({ _id: sessionId }, { $set: { finalReport: report, status: 'ended', endedAt: new Date() } });
       }

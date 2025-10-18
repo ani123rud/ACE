@@ -4,6 +4,7 @@ import morgan from 'morgan';
 import dotenv from 'dotenv';
 import { connectMongo } from './config/db.js';
 import interviewRoutes from './routes/interview.js';
+import eventsRoutes from './routes/events.js';
 import proctorRoutes from './routes/proctor.js';
 import { getEnv } from './config/env.js';
 import visionRoutes from './routes/vision.js';
@@ -58,6 +59,13 @@ async function bootstrap() {
     console.log('[server] Interview routes registered');
   } catch (error) {
     console.error('[server] Failed to register interview routes:', error);
+  }
+
+  try {
+    app.use('/api/interview/event', eventsRoutes);
+    console.log('[server] Events routes registered');
+  } catch (error) {
+    console.error('[server] Failed to register events routes:', error);
   }
 
   try {

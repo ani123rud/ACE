@@ -60,9 +60,26 @@ r.post('/verify', async (req, res) => {
   const ref = await FaceRef.findOne({ sessionId }).lean();
   if (!ref) return res.status(404).json({ error: 'Reference not found for session' });
   try {
-    const result = await verifyVision(imageBase64, ref.embedding);
-    // result: { matchScore, multipleFaces, lookingAway, headPose, facesCount }
-    res.json({ ok: true, ...result });
+    // Perform verification twice to reduce noise
+    const run = () => verifyVision(imageBase64, ref.embedding);
+    const r1 = await run();
+    let r2 = null;
+    try { r2 = await run(); } catch {}
+
+    const m1 = typeof r1?.matchScore === 'number' ? r1.matchScore : 0;
+    const m2 = typeof r2?.matchScore === 'number' ? r2.matchScore : m1;
+    const matchScore = Math.min(m1, m2);
+    const multipleFaces = Boolean(r1?.multipleFaces || r2?.multipleFaces);
+    const lookingAway = Boolean(r1?.lookingAway || r2?.lookingAway);
+    const facesCount = Math.min(
+      typeof r1?.facesCount === 'number' ? r1.facesCount : 0,
+      typeof r2?.facesCount === 'number' ? r2.facesCount : (typeof r1?.facesCount === 'number' ? r1.facesCount : 0)
+    );
+    const headPose = r2?.headPose || r1?.headPose || null;
+
+    // Enforce threshold of 0.85 and at least one face with no multiple faces
+    const ok = (facesCount >= 1) && !multipleFaces && (matchScore >= 0.85);
+    res.json({ ok, matchScore, multipleFaces, lookingAway, facesCount, headPose });
   } catch (e) {
     const code = e?.code || '';
     const timeout = code === 'ECONNABORTED' || code === 'ETIMEDOUT';

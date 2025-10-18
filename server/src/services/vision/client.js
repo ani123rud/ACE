@@ -39,11 +39,10 @@ export async function createReference(imageBase64) {
 
 export async function verify(imageBase64, referenceEmbedding) {
   const base = getVisionBase();
-  return withRetry(async () => {
-    const res = await axios.post(`${base}/api/vision/verify`, {
-      image: imageBase64,
-      referenceEmbedding,
-    }, { timeout: 8000 });
-    return res.data; // { ok, matchScore, multipleFaces, lookingAway, headPose, facesCount }
-  }, { retries: 1 });
+  // Do not retry verify; keep a short timeout to prevent server request pileups
+  const res = await axios.post(`${base}/api/vision/verify`, {
+    image: imageBase64,
+    referenceEmbedding,
+  }, { timeout: 4000 });
+  return res.data; // { ok, matchScore, multipleFaces, lookingAway, headPose, facesCount }
 }
