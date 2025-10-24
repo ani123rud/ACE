@@ -11,6 +11,9 @@ import { redis } from '../config/redis.js';
 import mongoose from 'mongoose';
 
 const r = Router();
+// Configurable generation sizes
+const START_GEN_COUNT = Number.parseInt(process.env.QUESTIONS_START_COUNT || '20', 10);
+const REFILL_GEN_COUNT = Number.parseInt(process.env.QUESTIONS_REFILL_COUNT || '10', 10);
 
 r.post('/start', async (req, res) => {
   // Accept either domain or domainId from client
@@ -29,7 +32,7 @@ r.post('/start', async (req, res) => {
   if (!pool.length) {
     // Fallback: generate a set of questions from the domain's ingested PDFs via LlamaIndex
     try {
-      const generated = await generateQuestions(domainKey, 12);
+      const generated = await generateQuestions(domainKey, START_GEN_COUNT);
       if (Array.isArray(generated) && generated.length) {
         const docs = generated.map(g => ({ domain: domainKey, question: g.question, difficulty: g.difficulty || 'medium' }));
         await Question.insertMany(docs);
@@ -60,6 +63,8 @@ r.post('/answer', async (req, res) => {
   if (!q) return res.status(404).json({ error: 'Question not found' });
   const DEFER = /^true$/i.test(process.env.DEFER_EVAL || 'false');
   const FAST_FLOW = /^true$/i.test(process.env.FAST_FLOW || 'false');
+  const t0 = Date.now();
+  const modeLabel = DEFER ? 'Deferred' : (FAST_FLOW ? 'Fast flow' : 'Inline');
 
   let ctx = [];
   let evalRes = { score: null, feedback: null, nextDifficulty: 'medium' };
@@ -78,6 +83,7 @@ r.post('/answer', async (req, res) => {
         } catch {
           ctx = [];
         }
+        try { if (redis.isOpen) await redis.incr('rag:stats:hits'); } catch {}
       }
       if (!ctx.length) {
         const llama = await queryLlamaIndex(session.domain, compositeQuery);
@@ -90,6 +96,7 @@ r.post('/answer', async (req, res) => {
         if (redis.isOpen && sources.length) {
           await redis.set(cacheKey, JSON.stringify(sources), { EX: 300 });
         }
+        try { if (redis.isOpen) await redis.incr('rag:stats:misses'); } catch {}
       }
     } catch (e) {
       // Fallback to existing embedding-based retriever if LlamaIndex unavailable
@@ -133,6 +140,7 @@ r.post('/answer', async (req, res) => {
             const cached = redis.isOpen ? await redis.get(cacheKey) : null;
             if (cached) {
               try { bgCtx = JSON.parse(cached) || []; } catch { bgCtx = []; }
+              try { if (redis.isOpen) await redis.incr('rag:stats:hits'); } catch {}
             }
             if (!bgCtx.length) {
               const llama = await queryLlamaIndex(session.domain, compositeQuery);
@@ -142,6 +150,7 @@ r.post('/answer', async (req, res) => {
                 .slice(0, 5);
               bgCtx = sources;
               if (redis.isOpen && sources.length) await redis.set(cacheKey, JSON.stringify(sources), { EX: 300 });
+              try { if (redis.isOpen) await redis.incr('rag:stats:misses'); } catch {}
             }
           } catch {}
         }
@@ -166,7 +175,7 @@ r.post('/answer', async (req, res) => {
   // If still nothing, try to auto-generate a few fresh questions
   if (!pool.length) {
     try {
-      const generated = await generateQuestions(session.domain, 6);
+      const generated = await generateQuestions(session.domain, REFILL_GEN_COUNT);
       if (Array.isArray(generated) && generated.length) {
         const docs = generated.map(g => ({ domain: session.domain, question: g.question, difficulty: g.difficulty || 'medium' }));
         await Question.insertMany(docs);
@@ -191,6 +200,9 @@ r.post('/answer', async (req, res) => {
     else if (a.length < 60) quickFeedback = 'Be more specific: add 1-2 concrete details and a brief example.';
     else quickFeedback = 'Good. Next time tighten structure: definition → key points → short example → trade-offs.';
   }
+  // Compute latency and log non-blocking
+  const ms = Date.now() - t0;
+  try { await mongoose.connection.collection('latency').insertOne({ route: '/api/interview/answer', mode: modeLabel, ms, ts: new Date() }); } catch {}
   res.json({ feedback: FAST_FLOW ? quickFeedback : (DEFER ? null : evalRes.feedback), nextQuestion: nextQ, progress: session.progress });
 });
 

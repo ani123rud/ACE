@@ -65,6 +65,7 @@ async function handleTask(entry) {
         const cached = redisClient.isOpen ? await redisClient.get(cacheKey) : null;
         if (cached) {
           try { ctx = JSON.parse(cached) || []; } catch { ctx = []; }
+          try { if (redisClient.isOpen) await redisClient.incr('rag:stats:hits'); } catch {}
         }
         if (!ctx.length) {
           const llama = await queryLlamaIndex(session.domain, composite);
@@ -73,6 +74,7 @@ async function handleTask(entry) {
             .filter(Boolean)
             .slice(0, 5);
           ctx = sources;
+          try { if (redisClient.isOpen) await redisClient.incr('rag:stats:misses'); } catch {}
         }
       } catch {}
       try {

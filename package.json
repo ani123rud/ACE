@@ -16,6 +16,23 @@
     "concurrently": "^8.2.2"
   },
   "dependencies": {
-    "llamaindex": "^0.12.0"
-  }
+    "dotenv": "^17.2.3",
+    "llamaindex": "^0.12.0",
+    "mongodb": "^6.20.0",
+    "xlsx": "^0.18.5"
+  },
+  "description": "��#\u0000 \u0000A\u0000C\u0000E\u0000\r\u0000 \u0000#\u0000 \u0000A\u0000C\u0000E\u0000\r\u0000 \u0000",
+  "main": "export_answers_to_excel.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ani123rud/ACE.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/ani123rud/ACE/issues"
+  },
+  "homepage": "https://github.com/ani123rud/ACE#readme"
 }
