@@ -18,6 +18,7 @@ import alertsRoutes from './routes/alerts.js';
 import path from 'path';
 import { getLocalRoot } from './utils/storage.js';
 import authRoutes from './routes/auth.js';
+import { getOllamaClient } from './config/ollama.js';
 
 dotenv.config();
 
@@ -40,6 +41,29 @@ async function bootstrap() {
     });
   } catch (error) {
     console.error('[server] Redis initialization failed:', error);
+  }
+
+  // Warm-up scorer model to reduce first-request latency
+  try {
+    const { OLLAMA_SCORER_LLM } = process.env;
+    if (OLLAMA_SCORER_LLM) {
+      setImmediate(async () => {
+        try {
+          const client = getOllamaClient();
+          const res = await client.post('/api/generate', {
+            model: OLLAMA_SCORER_LLM,
+            prompt: 'ping',
+            options: { temperature: 0, num_predict: 1, num_ctx: 512 },
+            stream: false,
+          });
+          console.log('[warmup] Scorer model ready:', OLLAMA_SCORER_LLM, Boolean(res?.data?.response));
+        } catch (e) {
+          console.warn('[warmup] Scorer model warm-up failed (will retry on first request):', e?.message || e);
+        }
+      });
+    }
+  } catch (e) {
+    console.warn('[warmup] Skipped scorer warm-up:', e?.message || e);
   }
 
   app.get('/api/health', (_req, res) => {

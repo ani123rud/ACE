@@ -136,12 +136,32 @@ async function computeFinalReport(sessionId, qa = [], proctor = {}, opts = {}) {
   console.log('[computeFinalReport] About to call LLM with model:', scorerModel);
   console.log('[computeFinalReport] Environment OLLAMA_SCORER_LLM:', process.env.OLLAMA_SCORER_LLM);
   
+  // Cache key to reuse recent evaluations and avoid repeated LLM calls
+  let cacheKey = null;
+  try {
+    const rubricVer = 'v1';
+    const hashInput = rubricVer + '|' + qaBlock + '|' + events + '|' + (proctor?.integrity ?? '');
+    cacheKey = 'score:final:' + crypto.createHash('sha1').update(hashInput).digest('hex');
+    if (redis.isOpen) {
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        try {
+          const parsedCached = JSON.parse(cached);
+          if (parsedCached && typeof parsedCached === 'object') {
+            return parsedCached; // fast path
+          }
+        } catch {}
+      }
+    }
+  } catch {}
+
   let data;
   try {
     const response = await client.post('/api/generate', {
       model: scorerModel,
       prompt: `${system}\n\n${prompt}`,
-      options: { temperature: 0.3, num_predict: 800, num_ctx: 4096 },
+      // Tighter generation to reduce latency significantly while retaining accuracy
+      options: { temperature: 0.1, num_predict: 300, num_ctx: 2048 },
       stream: false,
     });
     data = response.data;
@@ -279,6 +299,7 @@ async function computeFinalReport(sessionId, qa = [], proctor = {}, opts = {}) {
     confidence,
     raw: parsed,
   };
+  try { if (cacheKey && redis.isOpen) await redis.set(cacheKey, JSON.stringify(report), { EX: 900 }); } catch {}
   return report;
 }
 

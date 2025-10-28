@@ -44,7 +44,7 @@ export async function verify(imageBase64, referenceEmbedding) {
     const res = await axios.post(`${base}/api/vision/verify`, {
       image: imageBase64,
       referenceEmbedding,
-    }, { timeout: 30000 });
+    }, { timeout: 10000 });
     return res.data; // { ok, matchScore, multipleFaces, lookingAway, headPose, facesCount }
   } catch (e) {
     // Return graceful fallback instead of throwing
