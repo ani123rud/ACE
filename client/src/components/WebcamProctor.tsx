@@ -47,7 +47,7 @@ export function WebcamProctor({ sessionId, captureIntervalMs = 4000, onAlert, on
       // Start verification loop only if we have a session and server-side reference saved
       if (sessionId && refSaved) {
         if (timerRef.current) window.clearInterval(timerRef.current);
-        timerRef.current = window.setInterval(tick, Math.max(1200, captureIntervalMs)) as unknown as number;
+        timerRef.current = window.setInterval(tick, Math.max(3000, captureIntervalMs)) as unknown as number;
       }
     } catch (e) {
       onAlert?.('Unable to start camera', 'medium');
@@ -94,7 +94,7 @@ export function WebcamProctor({ sessionId, captureIntervalMs = 4000, onAlert, on
         // Start loop if not started
         if (started) {
           if (timerRef.current) window.clearInterval(timerRef.current);
-          timerRef.current = window.setInterval(tick, Math.max(1200, captureIntervalMs)) as unknown as number;
+          timerRef.current = window.setInterval(tick, Math.max(3000, captureIntervalMs)) as unknown as number;
         }
       } else {
         // No session yet: compute embedding only and keep locally
@@ -119,7 +119,7 @@ export function WebcamProctor({ sessionId, captureIntervalMs = 4000, onAlert, on
     try {
       // Add client-side timeout
       const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), 2500);
+      const timeout = window.setTimeout(() => controller.abort(), 30000);
       const res = await verifyFrame(sessionId, b64);
       window.clearTimeout(timeout);
       onMetrics?.(res);
@@ -159,7 +159,7 @@ export function WebcamProctor({ sessionId, captureIntervalMs = 4000, onAlert, on
           // Start loop if camera already started
           if (started) {
             if (timerRef.current) window.clearInterval(timerRef.current);
-            timerRef.current = window.setInterval(tick, Math.max(1200, captureIntervalMs)) as unknown as number;
+            timerRef.current = window.setInterval(tick, Math.max(3000, captureIntervalMs)) as unknown as number;
           }
         } catch (_) {
           onAlert?.('Failed to save session reference', 'medium');

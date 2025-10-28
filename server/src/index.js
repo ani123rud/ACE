@@ -11,6 +11,8 @@ import visionRoutes from './routes/vision.js';
 import scoringRoutes from './routes/scoring.js';
 import ragRoutes from './routes/rag.js';
 import adminRoutes from './routes/admin.js';
+import adminLearningRoutes from './routes/adminLearning.js';
+import learningPublicRoutes from './routes/learningPublic.js';
 import { initRedis } from './config/redis.js';
 import alertsRoutes from './routes/alerts.js';
 import path from 'path';
@@ -101,6 +103,20 @@ async function bootstrap() {
     console.log('[server] Admin routes registered');
   } catch (error) {
     console.error('[server] Failed to register admin routes:', error);
+  }
+
+  try {
+    app.use('/api/admin', adminLearningRoutes);
+    console.log('[server] Admin Learning routes registered');
+  } catch (error) {
+    console.error('[server] Failed to register admin learning routes:', error);
+  }
+
+  try {
+    app.use('/api/learning', learningPublicRoutes);
+    console.log('[server] Public Learning routes registered');
+  } catch (error) {
+    console.error('[server] Failed to register public learning routes:', error);
   }
 
   try {

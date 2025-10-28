@@ -24,34 +24,54 @@ export function MicRecorder({ autoStart = false, onTranscript, onAudioBlob }: Mi
         for (let i = e.resultIndex; i < e.results.length; ++i) {
           if (e.results[i].isFinal) final += e.results[i][0].transcript;
         }
-        if (final && onTranscript) onTranscript(final.trim());
+        if (final && onTranscript) {
+          console.log('[MicRecorder] Transcript received:', final.trim());
+          onTranscript(final.trim());
+        }
       };
       recognitionRef.current = rec;
     }
   }, [onTranscript]);
 
   async function start() {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const mr = new MediaRecorder(stream);
-    chunksRef.current = [];
-    mr.ondataavailable = (e) => {
-      if (e.data?.size) chunksRef.current.push(e.data);
-    };
-    mr.onstop = () => {
-      const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-      onAudioBlob?.(blob);
-    };
-    mr.start();
-    mediaRecorderRef.current = mr;
-    setListening(true);
-    recognitionRef.current?.start?.();
+    try {
+      console.log('[MicRecorder] Requesting microphone access...');
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream);
+      chunksRef.current = [];
+      mr.ondataavailable = (e) => {
+        if (e.data?.size) chunksRef.current.push(e.data);
+      };
+      mr.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        onAudioBlob?.(blob);
+      };
+      mr.start();
+      mediaRecorderRef.current = mr;
+      setListening(true);
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.start();
+          console.log('[MicRecorder] Started speech recognition');
+        } catch (e) {
+          console.error('[MicRecorder] Failed to start speech recognition:', e);
+        }
+      }
+    } catch (e) {
+      console.error('[MicRecorder] Failed to access microphone:', e);
+    }
   }
 
   function stop() {
-    mediaRecorderRef.current?.stop();
-    mediaRecorderRef.current?.stream.getTracks().forEach(t => t.stop());
-    recognitionRef.current?.stop?.();
-    setListening(false);
+    try {
+      mediaRecorderRef.current?.stop();
+      mediaRecorderRef.current?.stream.getTracks().forEach(t => t.stop());
+      recognitionRef.current?.stop?.();
+      setListening(false);
+      console.log('[MicRecorder] Stopped recording and recognition');
+    } catch (e) {
+      console.error('[MicRecorder] Error stopping:', e);
+    }
   }
 
   useEffect(() => {

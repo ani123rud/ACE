@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import LearningAdmin from './LearningAdmin';
 
 interface UploadedFile {
   id: string;
@@ -11,7 +12,7 @@ interface UploadedFile {
 }
 
 export default function AdminPanel() {
-  const [activeTab, setActiveTab] = useState<'upload' | 'rag-query' | 'admin-upload'>('upload');
+  const [activeTab, setActiveTab] = useState<'upload' | 'rag-query' | 'admin-upload' | 'learning-admin'>('upload');
   const [domain, setDomain] = useState('demo');
   const [files, setFiles] = useState<File[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
@@ -199,7 +200,8 @@ export default function AdminPanel() {
           {[
             { key: 'upload', label: '📁 File Upload' },
             { key: 'admin-upload', label: '🔐 Admin Upload' },
-            { key: 'rag-query', label: '🔍 RAG Query' }
+            { key: 'rag-query', label: '🔍 RAG Query' },
+            { key: 'learning-admin', label: '📚 Learning Content' }
           ].map(tab => (
             <button
               key={tab.key}
@@ -683,6 +685,14 @@ export default function AdminPanel() {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Learning Content Admin Tab */}
+          {activeTab === 'learning-admin' && (
+            <div>
+              <h2 style={{ color: '#2c3e50', marginBottom: '20px' }}>📚 Learning Content Management</h2>
+              <LearningAdmin />
             </div>
           )}
         </div>

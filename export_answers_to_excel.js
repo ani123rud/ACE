@@ -15,11 +15,39 @@ const CSV_OUT = "answers_export_with_header.csv";
 const XLSX_OUT = "answers_export.xlsx";
 
 (async () => {
-  const client = new MongoClient(ATLAS_URI);
+  const client = new MongoClient(ATLAS_URI, {
+    serverSelectionTimeoutMS: 30000, // 30 seconds
+    connectTimeoutMS: 30000,
+    socketTimeoutMS: 30000,
+    maxPoolSize: 10,
+    retryWrites: true,
+    retryReads: true
+  });
+  
   try {
+    console.log('Connecting to MongoDB Atlas...');
     await client.connect();
+    console.log('Connected successfully!');
     const db = client.db(DB_NAME);
     const col = db.collection(COLL);
+
+    console.log(`Querying collection: ${COLL} in database: ${DB_NAME}`);
+    
+    // First, let's check if the collection exists and has data
+    const count = await col.countDocuments({ "eval.score": { $ne: null } });
+    console.log(`Found ${count} documents with eval.score`);
+    
+    if (count === 0) {
+      console.log('No documents found with eval.score. Checking all documents...');
+      const totalCount = await col.countDocuments();
+      console.log(`Total documents in collection: ${totalCount}`);
+      
+      // Let's see what fields are available
+      const sampleDoc = await col.findOne();
+      if (sampleDoc) {
+        console.log('Sample document structure:', Object.keys(sampleDoc));
+      }
+    }
 
     const cursor = col.aggregate([
       { $match: { "eval.score": { $ne: null } } },
@@ -40,6 +68,7 @@ const XLSX_OUT = "answers_export.xlsx";
     rows.push(header);
 
     const dataForXlsx = [];
+    let processedCount = 0;
     for await (const doc of cursor) {
       const answerId = doc.answerId || "";
       const sessionId = doc.sessionId || "";
@@ -53,7 +82,10 @@ const XLSX_OUT = "answers_export.xlsx";
         question_id: questionId,
         model_score: Number.isFinite(Number(modelScoreStr)) ? Number(modelScoreStr) : modelScoreStr
       });
+      processedCount++;
     }
+    
+    console.log(`Processed ${processedCount} documents`);
 
     // CSV
     const csvContent = rows.map(r => r.map(f => String(f)).join(",")).join("\n");

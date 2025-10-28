@@ -37,6 +37,7 @@ export function useSpeech(): UseSpeech {
       if (final) setResultText(final.trim());
     };
     rec.onend = () => {
+      console.log('[Speech] Recognition ended');
       if (stopRequestedRef.current) {
         setIsListening(false);
         return;
@@ -44,9 +45,14 @@ export function useSpeech(): UseSpeech {
       try {
         rec.start();
         setIsListening(true);
-      } catch {}
+        console.log('[Speech] Restarting recognition');
+      } catch (e) {
+        console.error('[Speech] Failed to restart recognition:', e);
+        setIsListening(false);
+      }
     };
-    rec.onerror = () => {
+    rec.onerror = (e: any) => {
+      console.error('[Speech] Recognition error:', e);
       if (stopRequestedRef.current) {
         setIsListening(false);
         return;
@@ -54,7 +60,11 @@ export function useSpeech(): UseSpeech {
       try {
         rec.start();
         setIsListening(true);
-      } catch {}
+        console.log('[Speech] Restarting after error');
+      } catch (err) {
+        console.error('[Speech] Failed to restart after error:', err);
+        setIsListening(false);
+      }
     };
 
     recRef.current = rec;
@@ -65,18 +75,33 @@ export function useSpeech(): UseSpeech {
   }, [supported]);
 
   const startListening = useCallback(() => {
-    if (!supported || !recRef.current) return;
+    if (!supported || !recRef.current) {
+      console.warn('[Speech] Cannot start: not supported or no recognizer');
+      return;
+    }
     try {
       setResultText('');
       stopRequestedRef.current = false;
       recRef.current.start();
       setIsListening(true);
-    } catch {}
+      console.log('[Speech] Started listening');
+    } catch (e) {
+      console.error('[Speech] Failed to start recognition:', e);
+    }
   }, [supported]);
 
   const stopListening = useCallback(() => {
-    if (!supported || !recRef.current) return;
-    try { stopRequestedRef.current = true; recRef.current.stop(); } catch {}
+    if (!supported || !recRef.current) {
+      console.warn('[Speech] Cannot stop: not supported or no recognizer');
+      return;
+    }
+    try {
+      stopRequestedRef.current = true;
+      recRef.current.stop();
+      console.log('[Speech] Stopped listening');
+    } catch (e) {
+      console.error('[Speech] Failed to stop recognition:', e);
+    }
     setIsListening(false);
   }, [supported]);
 
