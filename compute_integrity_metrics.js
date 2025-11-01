@@ -75,13 +75,14 @@ function binarize(yScore, thr) {
     for await (const s of cur) {
       const sessionId = String(s._id || '');
       const evs = (s.events || []).map(e => ({ type: e.type, severity: e.severity, at: Number(e.at) || Date.now(), data: e.data || {} }));
-      const score = computeIntegrityScore(evs) / 100; // 0..1
+      const score01 = computeIntegrityScore(evs) / 100; // 0..1, higher is better (less risky)
+      const risk = 1 - score01; // 0..1, higher is worse (more risky)
       // Heuristic ground truth for breach
       const hasHigh = evs.some(e => String(e.severity).toLowerCase() === 'high');
       const keyTypes = new Set();
       for (const e of evs) if (['tab_switch','multi_speaker','face_count'].includes(e.type)) keyTypes.add(e.type);
       const gt = (hasHigh || keyTypes.size >= 2) ? 1 : 0;
-      rows.push({ sessionId, score, gt });
+      rows.push({ sessionId, risk, gt });
     }
     if (rows.length === 0) {
       console.log(JSON.stringify({ note: 'no alerts found' }, null, 2));
@@ -91,7 +92,7 @@ function binarize(yScore, thr) {
     function tprfpr(thr) {
       let TP=0, FP=0, FN=0, TN=0;
       for (const r of rows) {
-        const pred = binarize(r.score, thr);
+        const pred = binarize(r.risk, thr);
         if (pred===1 && r.gt===1) TP++; else if (pred===1 && r.gt===0) FP++; else if (pred===0 && r.gt===1) FN++; else TN++;
       }
       const TPR = (TP+FN) ? TP/(TP+FN) : 0; // recall

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { saveReferenceFace, verifyFrame, createReference, saveReferenceEmbedding } from '../api/vision';
+import * as faceapi from 'face-api.js';
 
 interface WebcamProctorProps {
   sessionId: string;
@@ -13,6 +14,7 @@ interface WebcamProctorProps {
 export function WebcamProctor({ sessionId, captureIntervalMs = 4000, onAlert, onMetrics, onReferenceCaptured, autoStart = false }: WebcamProctorProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const overlayRef = useRef<HTMLCanvasElement | null>(null);
   const [started, setStarted] = useState(false);
   // referenced: a reference embedding has been captured (either locally or saved)
   const [referenced, setReferenced] = useState(false);
@@ -22,6 +24,62 @@ export function WebcamProctor({ sessionId, captureIntervalMs = 4000, onAlert, on
   const localEmbeddingRef = useRef<number[] | null>(null);
   const timerRef = useRef<number | null>(null);
   const busyRef = useRef(false);
+  const rafBoxRef = useRef<number | null>(null);
+
+  async function loadFaceModels() {
+    const bases = [
+      'https://cdn.jsdelivr.net/gh/vladmandic/face-api/model',
+      'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js-models/weights',
+      '/models',
+    ];
+    for (const b of bases) {
+      try {
+        await faceapi.nets.tinyFaceDetector.loadFromUri(b);
+        return true;
+      } catch {}
+    }
+    return false;
+  }
+
+  function clearOverlay() {
+    const c = overlayRef.current;
+    if (!c) return;
+    const ctx = c.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, c.width, c.height);
+  }
+
+  function drawBoxesOnce() {
+    const v = videoRef.current;
+    const c = overlayRef.current;
+    if (!v || !c) return;
+    const ctx = c.getContext('2d');
+    if (!ctx) return;
+    // Ensure canvas matches displayed size
+    const dispW = (v as HTMLVideoElement).width || 320;
+    const dispH = (v as HTMLVideoElement).height || 240;
+    c.width = dispW;
+    c.height = dispH;
+    ctx.clearRect(0, 0, c.width, c.height);
+    const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.3 });
+    faceapi
+      .detectAllFaces(v, options)
+      .then((detections) => {
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#22c55e';
+        for (const d of detections) {
+          const { x, y, width, height } = d.box;
+          // Scale from video’s intrinsic size to displayed size
+          const sx = dispW / (v.videoWidth || dispW);
+          const sy = dispH / (v.videoHeight || dispH);
+          ctx.strokeRect(x * sx, y * sy, width * sx, height * sy);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        rafBoxRef.current = requestAnimationFrame(drawBoxesOnce);
+      });
+  }
 
   async function start() {
     try {
@@ -42,6 +100,15 @@ export function WebcamProctor({ sessionId, captureIntervalMs = 4000, onAlert, on
         });
       }
       setStarted(true);
+      // Try to load face models and start bbox loop
+      try {
+        const ok = await loadFaceModels();
+        if (ok) {
+          // kick off bbox draw loop
+          if (rafBoxRef.current) cancelAnimationFrame(rafBoxRef.current);
+          rafBoxRef.current = requestAnimationFrame(drawBoxesOnce);
+        }
+      } catch {}
       // Auto-capture reference once camera is ready
       setTimeout(() => { captureReference().catch(() => {}); }, 300);
       // Start verification loop only if we have a session and server-side reference saved
@@ -61,6 +128,8 @@ export function WebcamProctor({ sessionId, captureIntervalMs = 4000, onAlert, on
       videoRef.current.srcObject = null;
     }
     if (timerRef.current) window.clearInterval(timerRef.current);
+    if (rafBoxRef.current) cancelAnimationFrame(rafBoxRef.current);
+    clearOverlay();
     setStarted(false);
   }
 
@@ -174,7 +243,10 @@ export function WebcamProctor({ sessionId, captureIntervalMs = 4000, onAlert, on
         <button onClick={() => (started ? stop() : start())}>{started ? 'Stop Camera' : 'Start Camera'}</button>
         <button onClick={() => captureReference().catch(() => {})} disabled={!started || referenced}>Capture Reference</button>
       </div>
-      <video ref={videoRef} width={320} height={240} style={{ marginTop: 8, background: '#000' }} />
+      <div style={{ position: 'relative', width: 320, height: 240, marginTop: 8 }}>
+        <video ref={videoRef} width={320} height={240} style={{ background: '#000', display: 'block' }} />
+        <canvas ref={overlayRef} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+      </div>
       <canvas ref={canvasRef} style={{ display: 'none' }} />
     </div>
   );

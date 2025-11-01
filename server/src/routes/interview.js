@@ -73,9 +73,22 @@ r.post('/answer', async (req, res) => {
     try {
       // Prefer LlamaIndex retrieval for context, with Redis cache-aside
       const compositeQuery = `${q.question}\n\nCandidate answer: ${candidateText || ''}`;
-      const h = crypto.createHash('sha1').update(session.domain + '|' + compositeQuery).digest('hex');
+      // Cache by domain|question and also by normalized variants to improve reuse ("radius" ~ 1-2)
+      const qLower = String(q.question || '').toLowerCase();
+      const qNorm = qLower.replace(/\s+/g, ' ').trim();
+      const qNormPunc = qLower.replace(/[^\p{L}\p{N}]+/gu, ' ').replace(/\s+/g, ' ').trim();
+      const h = crypto.createHash('sha1').update(session.domain + '|' + q.question).digest('hex');
+      const hNorm = crypto.createHash('sha1').update(session.domain + '|' + qNorm).digest('hex');
+      const hNormP = crypto.createHash('sha1').update(session.domain + '|' + qNormPunc).digest('hex');
       const cacheKey = `rag:ctx:${session.domain}:${h}`;
-      const cached = redis.isOpen ? await redis.get(cacheKey) : null;
+      const cacheKeyNorm = `rag:ctx:${session.domain}:${hNorm}`;
+      const cacheKeyNormP = `rag:ctx:${session.domain}:${hNormP}`;
+      let cached = null;
+      if (redis.isOpen) {
+        cached = await redis.get(cacheKeyNormP);
+        if (!cached) cached = await redis.get(cacheKeyNorm);
+        if (!cached) cached = await redis.get(cacheKey);
+      }
       if (cached) {
         try {
           const parsed = JSON.parse(cached);
@@ -94,7 +107,9 @@ r.post('/answer', async (req, res) => {
         ctx = sources;
         // set short TTL to keep API fast for repeated queries
         if (redis.isOpen && sources.length) {
-          await redis.set(cacheKey, JSON.stringify(sources), { EX: 300 });
+          await redis.set(cacheKey, JSON.stringify(sources), { EX: 900 });
+          await redis.set(cacheKeyNorm, JSON.stringify(sources), { EX: 900 });
+          await redis.set(cacheKeyNormP, JSON.stringify(sources), { EX: 900 });
         }
         try { if (redis.isOpen) await redis.incr('rag:stats:misses'); } catch {}
       }
@@ -135,9 +150,22 @@ r.post('/answer', async (req, res) => {
         if (!bgCtx.length) {
           try {
             const compositeQuery = `${q.question}\n\nCandidate answer: ${candidateText || ''}`;
-            const h = crypto.createHash('sha1').update(session.domain + '|' + compositeQuery).digest('hex');
+            // Cache by domain|question and also by normalized variants to improve reuse
+            const qLower = String(q.question || '').toLowerCase();
+            const qNorm = qLower.replace(/\s+/g, ' ').trim();
+            const qNormPunc = qLower.replace(/[^\p{L}\p{N}]+/gu, ' ').replace(/\s+/g, ' ').trim();
+            const h = crypto.createHash('sha1').update(session.domain + '|' + q.question).digest('hex');
+            const hNorm = crypto.createHash('sha1').update(session.domain + '|' + qNorm).digest('hex');
+            const hNormP = crypto.createHash('sha1').update(session.domain + '|' + qNormPunc).digest('hex');
             const cacheKey = `rag:ctx:${session.domain}:${h}`;
-            const cached = redis.isOpen ? await redis.get(cacheKey) : null;
+            const cacheKeyNorm = `rag:ctx:${session.domain}:${hNorm}`;
+            const cacheKeyNormP = `rag:ctx:${session.domain}:${hNormP}`;
+            let cached = null;
+            if (redis.isOpen) {
+              cached = await redis.get(cacheKeyNormP);
+              if (!cached) cached = await redis.get(cacheKeyNorm);
+              if (!cached) cached = await redis.get(cacheKey);
+            }
             if (cached) {
               try { bgCtx = JSON.parse(cached) || []; } catch { bgCtx = []; }
               try { if (redis.isOpen) await redis.incr('rag:stats:hits'); } catch {}
@@ -149,7 +177,11 @@ r.post('/answer', async (req, res) => {
                 .filter(Boolean)
                 .slice(0, 5);
               bgCtx = sources;
-              if (redis.isOpen && sources.length) await redis.set(cacheKey, JSON.stringify(sources), { EX: 300 });
+              if (redis.isOpen && sources.length) {
+                await redis.set(cacheKey, JSON.stringify(sources), { EX: 900 });
+                await redis.set(cacheKeyNorm, JSON.stringify(sources), { EX: 900 });
+                await redis.set(cacheKeyNormP, JSON.stringify(sources), { EX: 900 });
+              }
               try { if (redis.isOpen) await redis.incr('rag:stats:misses'); } catch {}
             }
           } catch {}

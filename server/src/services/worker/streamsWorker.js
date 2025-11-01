@@ -60,9 +60,17 @@ async function handleTask(entry) {
       let ctx = [];
       try {
         const composite = `${q.question}\n\nCandidate answer: ${a.candidateText || ''}`;
-        const h = crypto.createHash('sha1').update(session.domain + '|' + composite).digest('hex');
-        const cacheKey = `rag:ctx:${session.domain}:${h}`;
-        const cached = redisClient.isOpen ? await redisClient.get(cacheKey) : null;
+        // Cache by domain|question and also normalized question (to improve reuse)
+        const qNorm = String(q.question || '').toLowerCase().replace(/\s+/g, ' ').trim();
+        const hExact = crypto.createHash('sha1').update(session.domain + '|' + q.question).digest('hex');
+        const hNorm = crypto.createHash('sha1').update(session.domain + '|' + qNorm).digest('hex');
+        const cacheKey = `rag:ctx:${session.domain}:${hExact}`;
+        const cacheKeyNorm = `rag:ctx:${session.domain}:${hNorm}`;
+        let cached = null;
+        if (redisClient.isOpen) {
+          cached = await redisClient.get(cacheKeyNorm);
+          if (!cached) cached = await redisClient.get(cacheKey);
+        }
         if (cached) {
           try { ctx = JSON.parse(cached) || []; } catch { ctx = []; }
           try { if (redisClient.isOpen) await redisClient.incr('rag:stats:hits'); } catch {}
@@ -74,6 +82,13 @@ async function handleTask(entry) {
             .filter(Boolean)
             .slice(0, 5);
           ctx = sources;
+          // Warm cache for future requests
+          try {
+            if (redisClient.isOpen && sources.length) {
+              await redisClient.set(cacheKey, JSON.stringify(sources), { EX: 900 });
+              await redisClient.set(cacheKeyNorm, JSON.stringify(sources), { EX: 900 });
+            }
+          } catch {}
           try { if (redisClient.isOpen) await redisClient.incr('rag:stats:misses'); } catch {}
         }
       } catch {}
